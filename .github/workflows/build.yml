@@ -1,0 +1,84 @@
+name: Build Hollow Knight Mod
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+  
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      MOD_NAME: Hollow_knight_ACTS
+      EXPORT_DIR: export
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build project
+        run: dotnet build -c Release
+
+      - name: Prepare export folders
+        shell: pwsh
+        run: |
+          $mod = $env:MOD_NAME
+          $export = $env:EXPORT_DIR
+          d
+          Remove-Item -Recurse -Force "$export" -ErrorAction Ignore
+
+          New-Item -ItemType Directory -Path "$export\$mod\zip" | Out-Null
+          New-Item -ItemType Directory -Path "$export\$mod" | Out-Null
+
+      - name: Copy DLL and README
+        shell: pwsh
+        run: |
+          $mod = $env:MOD_NAME
+          $export = $env:EXPORT_DIR
+
+          Copy-Item "bin/Release/netstandard2.0/$mod.dll" "$export/$mod/"
+          Copy-Item "ReadMe.md" "$export/$mod/zip"
+
+      - name: Create mod zip
+        shell: pwsh
+        run: |
+          $mod = $env:MOD_NAME
+          $export = $env:EXPORT_DIR
+
+          Compress-Archive `
+            -Path "$export/$mod/*" `
+            -DestinationPath "$export/compiled.zip"
+
+      - name: Generate SHA256 hashes
+        shell: pwsh
+        run: |
+          $mod = $env:MOD_NAME
+          $export = $env:EXPORT_DIR
+
+          $dll = Get-FileHash "$export/$mod/$mod.dll" -Algorithm SHA256
+          $zip = Get-FileHash "$export/$mod/$mod.zip" -Algorithm SHA256
+
+          $content = @"
+            SHA256 - $mod.dll: $dll.Hash
+
+            SHA256 - $mod.zip: $zip.Hash
+          "@
+
+          Set-Content -Path "$export/SHA.txt" -Value $content
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-build
+          path: /export
