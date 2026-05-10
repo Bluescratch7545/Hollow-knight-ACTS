@@ -1,3 +1,3 @@
 # Hollow_knight_ACTS
 
-A mod for the game Hollow Knight.
+Adds Skongs ACT system to HK
